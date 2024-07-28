@@ -70,7 +70,7 @@ def phase2_filtering_technical_replicates(freq1, freq2, base_cnt1, base_cnt2, co
                 return calc_freq_weighted_avg(base_cnt1, base_cnt2, cov1, cov2)
 
 
-def filter_freqs(df, coverage_t=100, frequency_t=0.01, base_count_t=50, ignore_indels=True):
+def filter_mutations(df, coverage_t=100, frequency_t=0.01, base_count_t=50, ignore_indels=True):
     """
     Gets a freq Dataframe, and filter it by the desired coverage, frequency and base count thresholds (in that order).
     :return: a filtered DataFrame
@@ -80,7 +80,7 @@ def filter_freqs(df, coverage_t=100, frequency_t=0.01, base_count_t=50, ignore_i
     problematic = list_problematic_sites()
     filtered_df = df[~df['POS'].astype(int).isin(problematic)].copy()
 
-    # phase 0 - get only mutations - unnecessary by definition of variants
+    # phase 0 - get only mutations - unnecessary since iVar outputs only variants
 
     # filter
     if ignore_indels:
