@@ -2,7 +2,10 @@ import pandas as pd
 import filtering_functions
 import utils
 
+# TODO: manage input data across all functions
+# TODO: test functionality
 # TODO: add each function's description
+# TODO: add print statements to main function to track progress
 
 def get_common_muts(df, replicates=True):
     # group by variant definition and count unique sources
@@ -33,8 +36,8 @@ def find_recurrent_mutations_in_variants(df, variant_sample_counts, replicates=T
     return recurrent_variant_mutations
 
 
-def create_common_mutations_report(df, output_path, variant_mutations, file_title=None, sample_count_frac: float = 0.2,
-                                   drop_gamma=True):
+def create_common_mutations_report(df, variant_mutations, output_path, gff_file_path, consensus_file_path, primer_data_dir_path, fitness_inf_path, file_title=None, sample_count_frac: float = 0.2):
+
     mutations_report = pd.DataFrame(columns=['mutation', 'alpha', 'delta', 'gamma', 'omicron', 'non-voc', 'total'])
 
     # iterate over all the unique mutations in the data
@@ -47,8 +50,7 @@ def create_common_mutations_report(df, output_path, variant_mutations, file_titl
                'ALT_AA': df.loc[df['mutation'] == mutation, 'ALT_AA'].iloc[0]}
 
         # get data about the mutation's aa
-        row['POS_AA'], row['GFF_FEATURE'] = consensus_utils.nucleotide_to_aa_position(row['POS'],
-                                                                                      gene_id=row['GFF_FEATURE'])
+        row['POS_AA'], row['GFF_FEATURE'] = utils.nucleotide_to_aa_position(row['POS'], gff_file_path=gff_file_path, gene_id=row['GFF_FEATURE'])
 
         # count the number of samples with the mutation for each variant
         for variant, mutations_list in variant_mutations.items():
@@ -60,43 +62,37 @@ def create_common_mutations_report(df, output_path, variant_mutations, file_titl
         row['total'] = sum(row[variant.lower()] for variant in variant_mutations)
 
         # add synonymity column
-        row['synonymity'] = masked_variants_utils.categorize_synonymity(row)
+        row['synonymity'] = utils.categorize_synonymity(row)
 
         # concat to report
         mutations_report = pd.concat([mutations_report, pd.DataFrame([row])], ignore_index=True)
 
-    if drop_gamma:  # drop all mutations that are common only to gamma
-        muts_to_drop = mutations_report[
-            (mutations_report['alpha'] == 0) & (mutations_report['delta'] == 0) & (mutations_report['omicron'] == 0) & (
-                        mutations_report['non-voc'] == 0) & (mutations_report['gamma'] > 0)]
-        mutations_report.drop(muts_to_drop.index, inplace=True)
-
     # add CDS categorization
-    mutations_report['CDS'] = mutations_report.apply(lambda row: masked_variants_utils.categorize_cds(row), axis=1)
+    mutations_report['CDS'] = mutations_report.apply(lambda row: utils.categorize_cds(row, gff_file_path=gff_file_path),
+                                                     axis=1)
 
     # add %GC in the 20 nucleotides surrounding the mutation
     mutations_report['GC_content_nearby'] = mutations_report.apply(
-        lambda row: consensus_utils.get_GC_content_near_pos(row['POS'],
-                                                            cons_seq_file='/Users/shir/Documents/University/Projects/AccuNGS_vs_iVar/MN908947_ref.fasta',
-                                                            window_size=10), axis=1)
+        lambda row: utils.get_GC_content_near_pos(pos=row['POS'],
+                                                  consensus_seq_path=consensus_file_path,
+                                                  window_size=25),
+        axis=1)
 
-    # add distance from primers to the report
+    # add distance from each relevant set of primers to the report
     mutations_report[['nt_from_V3_primers', 'V3_strand']] = mutations_report.apply(lambda row: pd.Series(
-        consensus_utils.get_distance_from_closest_primer(row['POS'], 'V3',
-                                                         '/Users/shir/Documents/University/Projects/acute_covid/primer_data')),
+        utils.get_distance_from_closest_primer(nt_pos=row['POS'], primers_version='V3',
+                                               primer_data_dir_path=primer_data_dir_path)),
                                                                                    axis=1)
     mutations_report[['nt_from_V4.1_primers', 'V4.1_strand']] = mutations_report.apply(lambda row: pd.Series(
-        consensus_utils.get_distance_from_closest_primer(row['POS'], 'V4.1',
-                                                         '/Users/shir/Documents/University/Projects/acute_covid/primer_data')),
+        utils.get_distance_from_closest_primer(nt_pos=row['POS'], primers_version='V4.1',
+                                               primer_data_dir_path=primer_data_dir_path)),
                                                                                        axis=1)
 
     # adjust the ORF1a & ORF1b positions to the ORF1ab gene
-    mutations_report_fixed_orf1ab = masked_variants_utils.adjust_orf1ab_pos_aa_and_gff_feature(mutations_report)
+    mutations_report_fixed_orf1ab = utils.adjust_orf1ab_pos_aa_and_gff_feature(mutations_report)
 
-    # add Bloom & Neher's fitness estimations to the report
-    fitness_inference = pd.read_table(
-        '/Users/shir/Documents/University/Projects/acute_covid/bloom_n_neher_fitness_inference/aamut_fitness_all.csv',
-        sep=",")
+    # add fitness estimations to the report
+    fitness_inference = pd.read_table(fitness_inf_path, sep=",")
     fitness_inference.rename(columns={'gene': 'GFF_FEATURE', 'mutant_aa': 'ALT_AA', 'aa_site': 'POS_AA'}, inplace=True)
     mutations_report_w_fitness = pd.merge(mutations_report_fixed_orf1ab,
                                           fitness_inference[['GFF_FEATURE', 'ALT_AA', 'POS_AA', 'delta_fitness']],
@@ -132,9 +128,18 @@ def main():
     # analyze only the recurrent mutations of variants that have at least 10 samples
     filtered_recurrent_mutations = {var: muts for var, muts in recurrent_mutations.items()
                                     if var in variant_sample_counts and variant_sample_counts[var] >= 10}
-    # TODO: edit & implement the mutation report function
-    mutations_report =
-    pass
+
+    mutations_report = create_common_mutations_report(df=filtered_minor_alleles, variant_mutations=filtered_recurrent_mutations,
+                                                      output_path='output',
+                                                      gff_file_path='input/MN908947_3.gff3',
+                                                      consensus_file_path='input/MN908947_3.fasta',
+                                                      primer_data_dir_path='input/primers',
+                                                      fitness_inf_path='',
+                                                      file_title=None,
+                                                      sample_count_frac=0.2)
+    print("done!\n"
+          "final report is saved in 'output' folder.")
+    return mutations_report
 
 
 if __name__ == "__main__":
