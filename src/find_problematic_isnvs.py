@@ -2,7 +2,6 @@ import pandas as pd
 import filtering_functions
 import utils
 
-# TODO: manage input data across all functions
 # TODO: test functionality
 # TODO: add each function's description
 # TODO: add print statements to main function to track progress
@@ -36,7 +35,7 @@ def find_recurrent_mutations_in_variants(df, variant_sample_counts, replicates=T
     return recurrent_variant_mutations
 
 
-def create_common_mutations_report(df, variant_mutations, output_path, gff_file_path, consensus_file_path, primer_data_dir_path, fitness_inf_path, file_title=None, sample_count_frac: float = 0.2):
+def create_common_mutations_report(df, variant_mutations, output_path, gff_file_path, consensus_file_path, primer_data_dir_path, fitness_inference_path, file_title=None, sample_count_frac: float = 0.2):
 
     mutations_report = pd.DataFrame(columns=['mutation', 'alpha', 'delta', 'gamma', 'omicron', 'non-voc', 'total'])
 
@@ -92,7 +91,7 @@ def create_common_mutations_report(df, variant_mutations, output_path, gff_file_
     mutations_report_fixed_orf1ab = utils.adjust_orf1ab_pos_aa_and_gff_feature(mutations_report)
 
     # add fitness estimations to the report
-    fitness_inference = pd.read_table(fitness_inf_path, sep=",")
+    fitness_inference = pd.read_table(fitness_inference_path, sep=",")
     fitness_inference.rename(columns={'gene': 'GFF_FEATURE', 'mutant_aa': 'ALT_AA', 'aa_site': 'POS_AA'}, inplace=True)
     mutations_report_w_fitness = pd.merge(mutations_report_fixed_orf1ab,
                                           fitness_inference[['GFF_FEATURE', 'ALT_AA', 'POS_AA', 'delta_fitness']],
@@ -106,13 +105,13 @@ def create_common_mutations_report(df, variant_mutations, output_path, gff_file_
 
 def main():
     # retrieve data & add necessary columns
-    all_variants = pd.read_table('data/all_variants.tsv', sep="\t", index_col=0)
+    all_variants = pd.read_table('input/data/all_variants.tsv', sep="\t", index_col=0)
     utils.add_data_columns(all_variants)
 
     # merge with info files & get sample count of each variant before filtering
     all_variants_w_info = utils.merge_variants_w_info(all_variants,
-                                                      sym_onset_path="data/sym_onset.csv",
-                                                      ct_values_path="data/ct_values.csv")
+                                                      sym_onset_path="input/data/sym_onset.csv",
+                                                      ct_values_path="input/data/ct_values.csv")
     variant_sample_counts = all_variants_w_info.groupby('VOC')['sample'].nunique().to_dict()    # this count disregards replicates
 
     # get minor alleles
@@ -131,10 +130,10 @@ def main():
 
     mutations_report = create_common_mutations_report(df=filtered_minor_alleles, variant_mutations=filtered_recurrent_mutations,
                                                       output_path='output',
-                                                      gff_file_path='input/MN908947_3.gff3',
-                                                      consensus_file_path='input/MN908947_3.fasta',
+                                                      gff_file_path='input/consensus/MN908947_3.gff3',
+                                                      consensus_file_path='input/consensus/MN908947_3.fasta',
                                                       primer_data_dir_path='input/primers',
-                                                      fitness_inf_path='',
+                                                      fitness_inference_path='input/data/aamut_fitness_all.csv',
                                                       file_title=None,
                                                       sample_count_frac=0.2)
     print("done!\n"
