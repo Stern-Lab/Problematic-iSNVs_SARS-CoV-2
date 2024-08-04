@@ -13,7 +13,7 @@ def read_vcf(path):
 
 
 def list_problematic_sites():
-    problematic_sites = read_vcf('input/problematic_sites_sarsCov2.vcf')
+    problematic_sites = read_vcf('./input/problematic_sites_sarsCov2.vcf')
     CAUTION_POSITIONS = problematic_sites[problematic_sites.FILTER == 'caution'].POS.tolist()
     MASK_POSITIONS = problematic_sites[problematic_sites.FILTER == 'mask'].POS.tolist()
     HIGHLY_HOMOPLASIC = [187, 1059, 2094, 3037, 3130, 6990, 8022, 10323, 10741, 11074, 13408, 14786, 19684, 20148, 21137, 24034, 24378, 25563, 26144, 26461, 26681, 28077, 28826, 28854, 29700]

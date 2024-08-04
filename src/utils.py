@@ -171,12 +171,10 @@ def get_GC_content_near_pos(pos: int, consensus_seq_path: str, window_size: int 
 
     # Get the sequence in the window
     window_seq = cons_seq[int(start_pos):int(end_pos)]
-    print('%GC calculated using the window:', window_seq)
 
     # Calculate the GC content
     gc_content = (window_seq.count('G') + window_seq.count('C')) / len(window_seq)
     gc_perc = gc_content * 100
-    print('%GC:', gc_perc)
     return gc_perc
 
 

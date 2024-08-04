@@ -2,8 +2,8 @@ import pandas as pd
 import filtering_functions
 import utils
 
-# TODO: test functionality
 # TODO: add each function's description
+# TODO: add preprocessing functions
 # TODO: add print statements to main function to track progress
 
 def get_common_muts(df, replicates=True):
@@ -35,9 +35,10 @@ def find_recurrent_mutations_in_variants(df, variant_sample_counts, replicates=T
     return recurrent_variant_mutations
 
 
-def create_common_mutations_report(df, variant_mutations, output_path, gff_file_path, consensus_file_path, primer_data_dir_path, fitness_inference_path, file_title=None, sample_count_frac: float = 0.2):
+def create_common_mutations_report(df, variant_mutations, output_path, gff_file_path, consensus_file_path, primer_data_dir_path, fitness_inference_path, file_title='', sample_count_frac: float = 0.2):
 
-    mutations_report = pd.DataFrame(columns=['mutation', 'alpha', 'delta', 'gamma', 'omicron', 'non-voc', 'total'])
+    #mutations_report = pd.DataFrame(columns=['mutation', 'alpha', 'delta', 'gamma', 'omicron', 'non-voc', 'total'])
+    mutations_report = pd.DataFrame()
 
     # iterate over all the unique mutations in the data
     for mutation in set.union(*variant_mutations.values()):
@@ -62,9 +63,10 @@ def create_common_mutations_report(df, variant_mutations, output_path, gff_file_
 
         # add synonymity column
         row['synonymity'] = utils.categorize_synonymity(row)
+        row = pd.DataFrame([row])
 
         # concat to report
-        mutations_report = pd.concat([mutations_report, pd.DataFrame([row])], ignore_index=True)
+        mutations_report = pd.concat([mutations_report, row], ignore_index=True)
 
     # add CDS categorization
     mutations_report['CDS'] = mutations_report.apply(lambda row: utils.categorize_cds(row, gff_file_path=gff_file_path),
@@ -105,17 +107,17 @@ def create_common_mutations_report(df, variant_mutations, output_path, gff_file_
 
 def main():
     # retrieve data & add necessary columns
-    all_variants = pd.read_table('input/data/all_variants.tsv', sep="\t", index_col=0)
+    all_variants = pd.read_table('./input/data/all_variants.tsv', sep="\t", index_col=0)
     utils.add_data_columns(all_variants)
 
     # merge with info files & get sample count of each variant before filtering
     all_variants_w_info = utils.merge_variants_w_info(all_variants,
-                                                      sym_onset_path="input/data/sym_onset.csv",
-                                                      ct_values_path="input/data/ct_values.csv")
+                                                      sym_onset_path="./input/data/sym_onset.csv",
+                                                      ct_values_path="./input/data/ct_values.csv")
     variant_sample_counts = all_variants_w_info.groupby('VOC')['sample'].nunique().to_dict()    # this count disregards replicates
 
     # get minor alleles
-    minor_alleles = all_variants.loc[(all_variants['ALT_FREQ'] < 0.2)]
+    minor_alleles = all_variants_w_info.loc[(all_variants_w_info['ALT_FREQ'] < 0.2)]
 
     # filter to eliminate as many sequencing errors as possible
     filtered_minor_alleles = filtering_functions.filter_mutations(minor_alleles, coverage_t=0, frequency_t=0.01,
@@ -129,12 +131,12 @@ def main():
                                     if var in variant_sample_counts and variant_sample_counts[var] >= 10}
 
     mutations_report = create_common_mutations_report(df=filtered_minor_alleles, variant_mutations=filtered_recurrent_mutations,
-                                                      output_path='output',
-                                                      gff_file_path='input/consensus/MN908947_3.gff3',
-                                                      consensus_file_path='input/consensus/MN908947_3.fasta',
-                                                      primer_data_dir_path='input/primers',
-                                                      fitness_inference_path='input/data/aamut_fitness_all.csv',
-                                                      file_title=None,
+                                                      output_path='./output',
+                                                      gff_file_path='./input/consensus/MN908947_3.gff3',
+                                                      consensus_file_path='./input/consensus/MN908947_3.fasta',
+                                                      primer_data_dir_path='./input/primers',
+                                                      fitness_inference_path='./input/data/aamut_fitness_all.csv',
+                                                      file_title='',
                                                       sample_count_frac=0.2)
     print("done!\n"
           "final report is saved in 'output' folder.")
