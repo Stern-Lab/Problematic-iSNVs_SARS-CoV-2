@@ -70,7 +70,7 @@ def phase2_filtering_technical_replicates(freq1, freq2, base_cnt1, base_cnt2, co
                 return calc_freq_weighted_avg(base_cnt1, base_cnt2, cov1, cov2)
 
 
-def filter_mutations(df, coverage_t=100, frequency_t=0.01, base_count_t=50, ignore_indels=True):
+def filter_mutations(df, coverage_t: int, frequency_t: float, base_count_t: int, ignore_indels: bool):
     """
     Gets a freq Dataframe, and filter it by the desired coverage, frequency and base count thresholds (in that order).
     :return: a filtered DataFrame
